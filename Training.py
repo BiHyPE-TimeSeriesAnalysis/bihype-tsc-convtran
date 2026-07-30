@@ -156,6 +156,8 @@ class SupervisedTrainer(BaseTrainer):
 
         self.epoch_metrics['accuracy'] = metrics_dict['total_accuracy']  # same as average recall over all classes
         self.epoch_metrics['precision'] = metrics_dict['prec_avg']  # average precision over all classes
+        self.epoch_metrics['recall'] = metrics_dict['rec_avg']
+        # self.epoch_metrics['confusion_matrix'] = metrics_dict['ConfMatrix']
 
         '''
         if self.model.num_classes == 2:

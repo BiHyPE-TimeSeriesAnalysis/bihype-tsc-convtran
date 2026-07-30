@@ -1,6 +1,6 @@
 import numpy as np
 from torch import nn
-from Models.AbsolutePositionalEncoding import tAPE, AbsolutePositionalEncoding, LearnablePositionalEncoding
+from Models.AbsolutePositionalEncoding import ProposedPositionalEmbedding, tAPE, AbsolutePositionalEncoding, LearnablePositionalEncoding
 from Models.Attention import Attention, Attention_Rel_Scl, Attention_Rel_Vec
 
 
@@ -43,6 +43,9 @@ class Transformer(nn.Module):
             self.Fix_Position = tAPE(emb_size, dropout=config['dropout'], max_len=seq_len)
         elif config['Fix_pos_encode'] == 'Learn':
             self.Fix_Position = LearnablePositionalEncoding(emb_size, dropout=config['dropout'], max_len=seq_len)
+        elif config['Fix_pos_encode'] == 'Proposed':
+            self.Fix_Position = ProposedPositionalEmbedding(emb_size, max_len=seq_len)
+
 
         self.LayerNorm1 = nn.LayerNorm(emb_size, eps=1e-5)
         self.LayerNorm2 = nn.LayerNorm(emb_size, eps=1e-5)
@@ -108,6 +111,8 @@ class ConvTran(nn.Module):
             self.Fix_Position = AbsolutePositionalEncoding(emb_size, dropout=config['dropout'], max_len=seq_len)
         elif config['Fix_pos_encode'] == 'Learn':
             self.Fix_Position = LearnablePositionalEncoding(emb_size, dropout=config['dropout'], max_len=seq_len)
+        elif self.Fix_pos_encode == 'Proposed':
+            self.Fix_Position = ProposedPositionalEmbedding(emb_size, max_len=seq_len)
 
         if self.Rel_pos_encode == 'eRPE':
             self.attention_layer = Attention_Rel_Scl(emb_size, num_heads, seq_len, config['dropout'])

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def load(config):
     # Build data
     Data = {}
-    problem = config['data_dir'].split('/')[-1]
+    problem = os.path.basename(config['data_dir'])
 
     if os.path.exists(config['data_dir'] + '/' + problem + '.npy'):
         logger.info("Loading preprocessed data ...")
@@ -35,8 +35,10 @@ def load(config):
 
     else:
         logger.info("Loading and preprocessing data ...")
-        train_file = config['data_dir'] + "/" + problem + "_TRAIN.ts"
-        test_file = config['data_dir'] + "/" + problem + "_TEST.ts"
+        dataset_dir = config['data_dir']
+
+        train_file = os.path.join(dataset_dir, f"{problem}_TRAIN.ts")
+        test_file  = os.path.join(dataset_dir, f"{problem}_TEST.ts")
         train_df, y_train = load_from_tsfile_to_dataframe(train_file)
         test_df, y_test = load_from_tsfile_to_dataframe(test_file)
 

@@ -13,6 +13,8 @@ from Models.optimizers import get_optimizer
 from Models.loss import get_loss_module
 from Models.utils import load_model
 from Training import SupervisedTrainer, train_runner
+from plotting import plot_and_save_results, plot_stable_rank_summary, plot_classification_metrics_summary
+from sktime.datasets import load_from_tsfile_to_dataframe
 
 logger = logging.getLogger('__main__')
 parser = argparse.ArgumentParser()
@@ -32,9 +34,9 @@ parser.add_argument('--Net_Type', default=['C-T'], choices={'T', 'C-T'}, help="N
 parser.add_argument('--emb_size', type=int, default=16, help='Internal dimension of transformer embeddings')
 parser.add_argument('--dim_ff', type=int, default=256, help='Dimension of dense feedforward part of transformer layer')
 parser.add_argument('--num_heads', type=int, default=8, help='Number of multi-headed attention heads')
-parser.add_argument('--Fix_pos_encode', choices={'tAPE', 'Learn', 'None'}, default='tAPE',
+parser.add_argument('--Fix_pos_encode', choices={'tAPE', 'Learn', 'None', 'Proposed'}, default='Proposed',
                     help='Fix Position Embedding')
-parser.add_argument('--Rel_pos_encode', choices={'eRPE', 'Vector', 'None'}, default='eRPE',
+parser.add_argument('--Rel_pos_encode', choices={'eRPE', 'Vector', 'None'}, default='None',
                     help='Relative Position Embedding')
 # Training Parameters/ Hyper-Parameters ----------------
 parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
@@ -51,28 +53,117 @@ parser.add_argument('--console', action='store_true', help="Optimize printout fo
 parser.add_argument('--seed', default=1234, type=int, help='Seed used for splitting sets')
 args = parser.parse_args()
 
+# if __name__ == '__main__':
+#     config = Setup(args)  # configuration dictionary
+#     device = Initialization(config)
+#     Data_Verifier(config)  # Download the UEA and HAR datasets if they are not in the directory
+#     All_Results = []  # Use to store the accuracy of ConvTran in e.g "Result/Datasets/UEA"
+
+#     print("Proposed PE:", args.Fix_pos_encode, args.Rel_pos_encode)
+#     for problem in os.listdir(config['data_path']):  # for loop on the all datasets in "data_dir" directory
+#         config['data_dir'] = os.path.join(config['data_path'], problem)
+#         print(text2art(problem, font='small'))
+#         # ------------------------------------ Load Data ---------------------------------------------------------------
+#         logger.info("Loading Data ...")
+#         Data = Data_Loader(config)
+#         train_dataset = dataset_class(Data['train_data'], Data['train_label'])
+#         val_dataset = dataset_class(Data['val_data'], Data['val_label'])
+#         test_dataset = dataset_class(Data['test_data'], Data['test_label'])
+
+#         train_loader = DataLoader(dataset=train_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+#         val_loader = DataLoader(dataset=val_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+#         test_loader = DataLoader(dataset=test_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+#         # --------------------------------------------------------------------------------------------------------------
+#         # -------------------------------------------- Build Model -----------------------------------------------------
+
+#         logger.info("Creating model ...")
+#         config['Data_shape'] = Data['train_data'].shape
+#         config['num_labels'] = int(max(Data['train_label']))+1
+#         model = model_factory(config)
+#         logger.info("Model:\n{}".format(model))
+#         logger.info("Total number of parameters: {}".format(count_parameters(model)))
+#         # -------------------------------------------- Model Initialization ------------------------------------
+#         optim_class = get_optimizer("RAdam")
+#         config['optimizer'] = optim_class(model.parameters(), lr=config['lr'], weight_decay=0)
+#         config['loss_module'] = get_loss_module()
+#         save_path = os.path.join(config['save_dir'], problem + 'model_{}.pth'.format('last'))
+#         tensorboard_writer = SummaryWriter('summary')
+#         model.to(device)
+#         # ---------------------------------------------- Training The Model ------------------------------------
+#         logger.info('Starting training...')
+#         trainer = SupervisedTrainer(model, train_loader, device, config['loss_module'], config['optimizer'], l2_reg=0,
+#                                     print_interval=config['print_interval'], console=config['console'], print_conf_mat=False)
+#         val_evaluator = SupervisedTrainer(model, val_loader, device, config['loss_module'],
+#                                           print_interval=config['print_interval'], console=config['console'],
+#                                           print_conf_mat=False)
+
+#         train_runner(config, model, trainer, val_evaluator, save_path)
+#         best_model, optimizer, start_epoch = load_model(model, save_path, config['optimizer'])
+#         best_model.to(device)
+
+#         best_test_evaluator = SupervisedTrainer(best_model, test_loader, device, config['loss_module'],
+#                                                 print_interval=config['print_interval'], console=config['console'],
+#                                                 print_conf_mat=True)
+#         best_aggr_metrics_test, all_metrics = best_test_evaluator.evaluate(keep_all=True)
+#         dic_position_results = [
+#             config['data_dir'].split('/')[-1],
+#             all_metrics['total_accuracy'],
+#             all_metrics['prec_avg'],
+#             all_metrics['rec_avg']
+#         ]
+#         print_str = 'Best Model Test Summary: '
+#         for k, v in best_aggr_metrics_test.items():
+#             print_str += '{}: {} | '.format(k, v)
+#         print(print_str)
+#         problem_df = pd.DataFrame([dic_position_results], columns=[
+#             'Dataset', 'Accuracy', 'Precision', 'Recall'
+#         ])
+#         problem_df.to_csv(os.path.join(config['pred_dir'], f"{problem}.csv"), index=False)
+
+#         All_Results.append(dic_position_results)
+
+#     All_Results_df = pd.DataFrame(All_Results, columns=[
+#         'Dataset', 'Accuracy', 'Precision', 'Recall'
+#     ])
+
+#     All_Results_df.to_csv(os.path.join(config['output_dir'], "ConvTran_Results.csv"), index=False)
+
+# visualization version
+
+# ==============================================================================================================
 if __name__ == '__main__':
     config = Setup(args)  # configuration dictionary
     device = Initialization(config)
     Data_Verifier(config)  # Download the UEA and HAR datasets if they are not in the directory
-    All_Results = ['Datasets', 'ConvTran']  # Use to store the accuracy of ConvTran in e.g "Result/Datasets/UEA"
 
+    # ĐƯỜNG DẪN THƯ MỤC CHECKPOINT CŨ CỦA BẠN
+    CHECKPOINT_DIR = r"E:\Journal-Ablation\TSC-based\ConvTran\Results\Dataset\UEA\2026-07-16_16-15\checkpoints"
+
+    stable_rank_records = {}
+    silhouette_dict = {}
+    dbi_dict = {}
+
+    print("Proposed PE:", args.Fix_pos_encode, args.Rel_pos_encode)
     for problem in os.listdir(config['data_path']):  # for loop on the all datasets in "data_dir" directory
         config['data_dir'] = os.path.join(config['data_path'], problem)
         print(text2art(problem, font='small'))
-        # ------------------------------------ Load Data ---------------------------------------------------------------
+        
+        # ------------------------------------ Load Data (Gốc) ---------------------------------------------------------
         logger.info("Loading Data ...")
         Data = Data_Loader(config)
+        
+        # Giữ nguyên việc khởi tạo dataset từ data chuẩn hóa của Data_Loader gốc
         train_dataset = dataset_class(Data['train_data'], Data['train_label'])
         val_dataset = dataset_class(Data['val_data'], Data['val_label'])
         test_dataset = dataset_class(Data['test_data'], Data['test_label'])
 
         train_loader = DataLoader(dataset=train_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
         val_loader = DataLoader(dataset=val_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
-        test_loader = DataLoader(dataset=test_dataset, batch_size=config['batch_size'], shuffle=True, pin_memory=True)
+        
+        # FIX: force shuffle=False ở tập test để kết quả bốc batch vẽ hình luôn cố định
+        test_loader = DataLoader(dataset=test_dataset, batch_size=config['batch_size'], shuffle=False, pin_memory=True)
         # --------------------------------------------------------------------------------------------------------------
-        # -------------------------------------------- Build Model -----------------------------------------------------
-        dic_position_results = [config['data_dir'].split('/')[-1]]
+        # -------------------------------------------- Build Model (Gốc) -----------------------------------------------
 
         logger.info("Creating model ...")
         config['Data_shape'] = Data['train_data'].shape
@@ -80,38 +171,53 @@ if __name__ == '__main__':
         model = model_factory(config)
         logger.info("Model:\n{}".format(model))
         logger.info("Total number of parameters: {}".format(count_parameters(model)))
+        
         # -------------------------------------------- Model Initialization ------------------------------------
         optim_class = get_optimizer("RAdam")
         config['optimizer'] = optim_class(model.parameters(), lr=config['lr'], weight_decay=0)
         config['loss_module'] = get_loss_module()
-        save_path = os.path.join(config['save_dir'], problem + 'model_{}.pth'.format('last'))
-        tensorboard_writer = SummaryWriter('summary')
+        
+        # FIX: Ép cứng đường dẫn tìm file checkpoint cũ thay vì tạo thư mục trống mới
+        save_path = os.path.join(CHECKPOINT_DIR, problem + 'model_{}.pth'.format('last'))
+        
+        if not os.path.exists(save_path):
+            print(f"[Bỏ qua] Không tồn tại checkpoint cũ của dataset này tại: {save_path}")
+            continue
+            
         model.to(device)
-        # ---------------------------------------------- Training The Model ------------------------------------
-        logger.info('Starting training...')
-        trainer = SupervisedTrainer(model, train_loader, device, config['loss_module'], config['optimizer'], l2_reg=0,
-                                    print_interval=config['print_interval'], console=config['console'], print_conf_mat=False)
-        val_evaluator = SupervisedTrainer(model, val_loader, device, config['loss_module'],
-                                          print_interval=config['print_interval'], console=config['console'],
-                                          print_conf_mat=False)
-
-        train_runner(config, model, trainer, val_evaluator, save_path)
+        # --------------------------------------------------------------------------------------------------------------
+        # BỎ BƯỚC TRAIN: train_runner(config, model, trainer, val_evaluator, save_path)
+        # --------------------------------------------------------------------------------------------------------------
+        
+        # -------------------------------------------- Load Checkpoint (Gốc) -------------------------------------------
+        logger.info(f'Loading pre-trained model from: {save_path}')
         best_model, optimizer, start_epoch = load_model(model, save_path, config['optimizer'])
         best_model.to(device)
 
+        # -------------------------------------------- Đánh giá & Vẽ đồ thị --------------------------------------------
         best_test_evaluator = SupervisedTrainer(best_model, test_loader, device, config['loss_module'],
                                                 print_interval=config['print_interval'], console=config['console'],
                                                 print_conf_mat=True)
+        
         best_aggr_metrics_test, all_metrics = best_test_evaluator.evaluate(keep_all=True)
+        
         print_str = 'Best Model Test Summary: '
         for k, v in best_aggr_metrics_test.items():
             print_str += '{}: {} | '.format(k, v)
         print(print_str)
-        dic_position_results.append(all_metrics['total_accuracy'])
-        problem_df = pd.DataFrame(dic_position_results)
-        problem_df.to_csv(os.path.join(config['pred_dir'] + '/' + problem + '.csv'))
 
-        All_Results = np.vstack((All_Results, dic_position_results))
+        # BỔ SUNG: Gọi hàm vẽ và tự động save ảnh PNG
+        print(f"--> Đang trực quan hóa đồ thị cho {problem}...")
+        rank_val, sh_val, db_val = plot_and_save_results(best_model, best_test_evaluator, problem)
 
-    All_Results_df = pd.DataFrame(All_Results)
-    All_Results_df.to_csv(os.path.join(config['output_dir'], 'ConvTran_Results.csv'))
+        if rank_val is not None:
+            stable_rank_records[problem] = rank_val
+        silhouette_dict[problem] = sh_val
+        dbi_dict[problem] = db_val
+
+    # ==============================================================================================================
+    # SAU KHI KẾT THÚC VÒNG LẶP TOÀN BỘ DATASET -> GỌI HÀM VẼ ĐỒ THỊ TỔNG HỢP
+    # ==============================================================================================================
+    print("\nTiến hành gom kết quả vẽ biểu đồ so sánh Stable Rank...")
+    plot_stable_rank_summary(stable_rank_records)
+    plot_classification_metrics_summary(silhouette_dict, dbi_dict)
