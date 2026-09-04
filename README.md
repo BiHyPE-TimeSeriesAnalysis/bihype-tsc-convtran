@@ -21,7 +21,9 @@ Benchmarks from the UEA time-series classification archive are used, pre-process
  
 - **Baseline model code:** implementation of the ConvTran architecture, configurable with different fixed and relative positional encoding modules.
 - **Positional encoding comparison:** the codebase supports six positional encoding scenarios for direct comparison against BiHyPE — **tAPE**, **eRPE**, **LAPE** (Learnable), **LRPE** (Vector), **ConvTran (tAPE + eRPE)**, and **BiHyPE (Proposed)**.
-- **Checkpoints:** checkpoints for all six positional encoding scenarios above are provided at [Checkpoints_PE_Comparison](https://drive.google.com/drive/folders/1FFTjWRNXupvVPqg_KtATKlo1stivTdF4?usp=sharing).
+- **Checkpoints:**
+  - Checkpoints for all six positional encoding scenarios above are provided at [Checkpoints_PE_Comparison](https://drive.google.com/drive/folders/1FFTjWRNXupvVPqg_KtATKlo1stivTdF4?usp=sharing).
+  - Checkpoints for baseline comparison are extracted to store at [Checkpoint_ConvTran](https://drive.google.com/drive/folders/1b6wL3KtsErXiitxcobJfeKaOgXU_AYZn?usp=sharing).
 ---
 
 ## Usage Instructions
